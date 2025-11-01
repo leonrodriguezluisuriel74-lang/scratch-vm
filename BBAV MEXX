@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador de Banca Móvil con IA</title>
+    <!-- Carga de Tailwind CSS para un diseño responsive y moderno -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Configuración de color para la app bancaria */
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'app-primary': '#4f46e5', /* Indigo principal */
+                        'app-secondary': '#8b5cf6', /* Violeta secundario */
+                        'app-bg': '#f3f4f6', /* Fondo claro */
+                        'app-card': '#ffffff', /* Fondo de tarjetas */
+                    },
+                    /* Gradiente usado en el header */
+                    backgroundImage: theme => ({
+                        'header-gradient': `linear-gradient(to right, ${theme('colors.app-primary')}, ${theme('colors.app-secondary')})`,
+                    })
+                }
+            }
+        }
+
+        /* Estilos base para simular la aplicación móvil */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #e5e7eb;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            padding-top: 20px;
+        }
+        .app-container {
+            width: 100%;
+            max-width: 400px; /* Tamaño de móvil */
+            min-height: 90vh;
+            background-color: #ffffff;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.2);
+            border-radius: 20px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+        .header {
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"><defs><linearGradient id="g" x2="1" y2="0"><stop offset="0" stop-color="%234f46e5"/><stop offset="1" stop-color="%238b5cf6"/></linearGradient></defs><rect width="100%" height="100%" fill="url(%23g)"/></svg>');
+            background-size: cover;
+            color: white;
+            padding: 16px;
+            text-align: center;
+            font-size: 1.1em;
+            font-weight: 600;
+        }
+        .content {
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        .nav-bar {
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 0;
+            border-top: 1px solid #e5e7eb;
+            background-color: white;
+            z-index: 10;
+        }
+        .nav-button {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #9ca3af; /* Gris por defecto */
+            font-size: 0.75em;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        .nav-button.active {
+            color: #4f46e5; /* Indigo activo */
+            font-weight: 600;
+        }
+        /* Para mensajes modales o temporales (sustituto de alert) */
+        #message-box {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #10b981;
+            color: white;
+            padding: 15px 30px;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s, transform 0.3s;
+            pointer-events: none;
+        }
+        #message-box.show {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1.05);
+            pointer-events: auto;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <div class="header">
+        Mi Banca Móvil
+    </div>
+
+    <!-- Contenido Principal Dinámico -->
+    <div id="content-area" class="content">
+        <!-- El contenido de las pestañas se inyecta aquí -->
+    </div>
+
+    <!-- Barra de Navegación Inferior -->
+    <div class="nav-bar">
+        <button class="nav-button active" data-tab="dashboard">
+            <svg class="w-6 h-6 mb-1" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L3 7v10l9 5 9-5V7zM12 17.15l-6-3.34V8.19l6-3.34 6 3.34v5.62z"/></svg>
+            Inicio
+        </button>
+        <button class="nav-button" data-tab="transfer">
+            <svg class="w-6 h-6 mb-1" fill="currentColor" viewBox="0 0 24 24"><path d="M12 4V1l8 8-8 8V13H4v-2h8V4z"/></svg>
+            Transferir
+        </button>
+        <button class="nav-button" data-tab="movements">
+            <svg class="w-6 h-6 mb-1" fill="currentColor" viewBox="0 0 24 24"><path d="M22 6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6zm-2 0l-8 5-8-5V6h16zm0 12H4V8l8 5 8-5v10z"/></svg>
+            Movimientos
+        </button>
+        <button class="nav-button" data-tab="settings">
+            <svg class="w-6 h-6 mb-1" fill="currentColor" viewBox="0 0 24 24"><path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.24-.19.29-.51.12-.74l-2-3.46c-.16-.23-.48-.32-.74-.21l-2.49 1c-.52-.4-1.09-.75-1.7-1L14 2h-4L9.82 4.2c-.61.25-1.18.6-1.7.98l-2.49-1c-.26-.11-.58-.02-.74.21l-2 3.46c-.17.23-.12.55.12.74l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.24.19-.29.51-.12.74l2 3.46c.16.23.48.32.74.21l2.49-1c.52.4 1.09.75 1.7.98L10 22h4l.18-2.2c.61-.25 1.18-.6 1.7-.98l2.49 1c.26.11.58.02.74-.21l2-3.46c.17-.23.12-.55-.12-.74l-2.11-1.65zM12 15c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z"/></svg>
+            Ajustes
+        </button>
+    </div>
+</div>
+
+<!-- Contenedor para mensajes modales -->
+<div id="message-box"></div>
+
+<script>
+    // Configuración de la API de Gemini
+    // El 'apiKey' se proporcionará automáticamente por el entorno si está vacío.
+    const API_KEY = "";
+    const GENERATE_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${API_KEY}`;
+    const TTS_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${API_KEY}`;
+    const MODEL_TTS = "gemini-2.5-flash-preview-tts";
+
+    // --- Estado Global de la App ---
+    let balance = 15000.00;
+    const LOW_BALANCE_THRESHOLD = 1500.00;
+    
+    let movements = [
+        { id: 1, type: 'gasto', description: 'Pago de Servicio Eléctrico', amount: 980.00, date: 'Ayer, 10:30 AM' },
+        { id: 2, type: 'ingreso', description: 'Depósito de Nómina', amount: 18500.00, date: '15 de Mayo' },
+        { id: 3, type: 'gasto', description: 'Compra en Supermercado', amount: 1250.50, date: '16 de Mayo' },
+    ];
+
+    // --- Funciones de Utilidad ---
+
+    // Muestra mensajes temporales en un modal personalizado (sustituto de alert())
+    function showCustomMessage(message, success = true) {
+        const msgBox = document.getElementById('message-box');
+        msgBox.textContent = message;
+        msgBox.className = 'show'; // Asegura que se vea
+        
+        msgBox.style.backgroundColor = success ? '#10b981' : '#ef4444'; // Verde para éxito, rojo para error
+        
+        setTimeout(() => {
+            msgBox.classList.remove('show');
+        }, 3000);
+    }
+    
+    // Formatea un número como moneda (MXN, estilo local)
+    function formatCurrency(amount) {
+        return new Intl.NumberFormat('es-MX', {
+            style: 'currency',
+            currency: 'MXN',
+            minimumFractionDigits: 2
+        }).format(amount);
+    }
+
+    // Convierte Base64 PCM a ArrayBuffer
+    function base64ToArrayBuffer(base64) {
+        const binaryString = atob(base64);
+        const len = binaryString.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes.buffer;
+    }
+    
+    // Función para convertir PCM a formato WAV (requerido para audio de TTS)
+    function pcmToWav(pcmData, sampleRate) {
+        const buffer = new ArrayBuffer(44 + pcmData.length * 2); // 44 bytes para el header + datos
+        const view = new DataView(buffer);
+        
+        // RIFF chunk descriptor
+        writeString(view, 0, 'RIFF');
+        view.setUint32(4, 36 + pcmData.length * 2, true);
+        writeString(view, 8, 'WAVE');
+        
+        // FMT chunk
+        writeString(view, 12, 'fmt ');
+        view.setUint32(16, 16, true); // Chunk size
+        view.setUint16(20, 1, true);  // Audio format (1 = PCM)
+        view.setUint16(22, 1, true);  // Number of channels
+        view.setUint32(24, sampleRate, true); // Sample rate
+        view.setUint32(28, sampleRate * 2, true); // Byte rate (SampleRate * NumChannels * BitsPerSample/8)
+        view.setUint16(32, 2, true);  // Block align (NumChannels * BitsPerSample/8)
+        view.setUint16(34, 16, true); // Bits per sample
+        
+        // DATA chunk
+        writeString(view, 36, 'data');
+        view.setUint32(40, pcmData.length * 2, true);
+        
+        // Escribir los datos PCM
+        for (let i = 0; i < pcmData.length; i++) {
+            view.setInt16(44 + i * 2, pcmData[i], true);
+        }
+        
+        return new Blob([view], { type: 'audio/wav' });
+    }
+
+    function writeString(view, offset, string) {
+        for (let i = 0; i < string.length; i++) {
+            view.setUint8(offset + i, string.charCodeAt(i));
+        }
+    }
+
+    // --- Lógica de la API de Gemini (Texto y TTS) ---
+
+    // Función para hacer la llamada a la API de generación de contenido (Texto)
+    async function callGemini(systemPrompt, userQuery) {
+        try {
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                // Usamos Google Search para grounding si la consulta requiere info actual
+                tools: [{ "google_search": {} }], 
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                },
+            };
+
+            const response = await fetch(GENERATE_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                // Manejar error de la API
+                console.error("Error en la respuesta de Gemini:", response.status, response.statusText);
+                return "Error al contactar al Asistente de IA.";
+            }
+
+            const result = await response.json();
+            const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+            
+            return text || "No se pudo generar una respuesta de IA.";
+
+        } catch (error) {
+            console.error('Error al llamar a la API de Gemini:', error);
+            return "Error de conexión con el servicio de IA.";
+        }
+    }
+
+    // Función para generar y reproducir audio (TTS)
+    async function playTTS(text) {
+        try {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const payload = {
+                contents: [{ parts: [{ text: text }] }],
+                generationConfig: {
+                    responseModalities: ["AUDIO"],
+                    speechConfig: {
+                        voiceConfig: {
+                            prebuiltVoiceConfig: { voiceName: "Kore" } // Voz firme y clara
+                        }
+                    }
+                },
+                model: MODEL_TTS
+            };
+
+            const response = await fetch(TTS_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const result = await response.json();
+            const part = result?.candidates?.[0]?.content?.parts?.[0];
+            const audioData = part?.inlineData?.data;
+            const mimeType = part?.inlineData?.mimeType;
+
+            if (audioData && mimeType && mimeType.startsWith("audio/")) {
+                // Extraer la Sample Rate del mimeType
+                const match = mimeType.match(/rate=(\d+)/);
+                const sampleRate = match ? parseInt(match[1], 10) : 16000; // Asumir 16000 Hz si no se encuentra
+                
+                // 1. Convertir Base64 a ArrayBuffer
+                const pcmData = base64ToArrayBuffer(audioData);
+                // 2. Convertir a Int16Array (PCM de 16 bits firmado)
+                const pcm16 = new Int16Array(pcmData);
+                // 3. Crear Blob WAV y URL
+                const wavBlob = pcmToWav(pcm16, sampleRate);
+                const audioUrl = URL.createObjectURL(wavBlob);
+                
+                // 4. Reproducir
+                const audio = new Audio(audioUrl);
+                audio.play();
+
+            } else {
+                console.error("No se pudo obtener datos de audio o el mimeType es incorrecto:", mimeType);
+            }
+        } catch (error) {
+            console.error('Error en el servicio TTS:', error);
+        }
+    }
+
+    // --- Lógica de la APP (Simulador) ---
+
+    // 1. Manejo de Pestañas
+    const contentArea = document.getElementById('content-area');
+    const navButtons = document.querySelectorAll('.nav-button');
+
+    navButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const targetTab = button.getAttribute('data-tab');
+            
+            // Actualizar clase activa de la navegación
+            navButtons.forEach(btn => btn.classList.remove('active'));
+            button.classList.add('active');
+
+            // Renderizar el contenido
+            renderTabContent(targetTab);
+        });
+    });
+
+    // Función principal para renderizar el contenido
+    function renderTabContent(tabName) {
+        contentArea.innerHTML = ''; // Limpiar contenido anterior
+        
+        // Si el saldo es bajo, activar la alerta TTS solo al cargar el Dashboard
+        if (tabName === 'dashboard' && balance < LOW_BALANCE_THRESHOLD) {
+            const message = `Alerta: Tu saldo de ${formatCurrency(balance)} es bajo. ¡Es momento de ahorrar!`;
+            playTTS(message);
+        }
+
+        switch (tabName) {
+            case 'dashboard':
+                renderDashboard();
+                break;
+            case 'transfer':
+                renderTransferForm();
+                break;
+            case 'movements':
+                renderMovementsList();
+                break;
+            case 'settings':
+                renderSettings();
+                break;
+        }
+    }
+
+    // --- Renderizado de Dashboard ---
+    function renderDashboard() {
+        contentArea.innerHTML = `
+            <div class="space-y-6">
+                <!-- Tarjeta de Saldo -->
+                <div class="bg-app-primary text-white p-6 rounded-xl shadow-lg transform hover:scale-[1.02] transition duration-300">
+                    <div class="text-sm font-light opacity-80">Saldo Disponible</div>
+                    <div id="balance-display" class="text-4xl font-extrabold mt-1">${formatCurrency(balance)}</div>
+                    <div class="flex justify-between mt-4 border-t border-white/20 pt-3">
+                        <div class="text-xs">Clave de cuenta: 987654321</div>
+                        <div class="text-xs font-semibold">${balance < LOW_BALANCE_THRESHOLD ? '🔴 ¡SALDO BAJO!' : '🟢 ESTATUS OK'}</div>
+                    </div>
+                </div>
+
+                <!-- Acciones Rápidas -->
+                <div class="grid grid-cols-3 gap-4 text-center">
+                    <button class="flex flex-col items-center p-3 bg-app-card rounded-xl shadow-md hover:bg-gray-50 transition duration-150" onclick="document.querySelector('[data-tab=transfer]').click()">
+                        <svg class="w-6 h-6 text-app-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m4 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                        <span class="text-xs mt-1 text-gray-700">Transferir</span>
+                    </button>
+                    <button class="flex flex-col items-center p-3 bg-app-card rounded-xl shadow-md hover:bg-gray-50 transition duration-150">
+                        <svg class="w-6 h-6 text-app-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
+                        <span class="text-xs mt-1 text-gray-700">Pagar</span>
+                    </button>
+                    <button id="gemini-analysis-button" class="flex flex-col items-center p-3 bg-app-card rounded-xl shadow-md hover:bg-gray-50 transition duration-150" onclick="runSpendingAnalysis()">
+                        <span class="text-lg">✨</span>
+                        <span class="text-xs mt-1 text-gray-700 font-bold">Análisis IA</span>
+                    </button>
+                </div>
+
+                <!-- Resultados del Análisis IA -->
+                <div id="analysis-result-card" class="bg-indigo-50 border-l-4 border-app-primary text-gray-800 p-4 rounded-lg shadow-inner hidden">
+                    <h3 class="font-bold mb-2 flex items-center"><span class="text-xl mr-2">🤖</span> Consejos de Ahorro IA</h3>
+                    <p id="analysis-text" class="text-sm"></p>
+                </div>
+
+                <!-- Sección de Movimientos Destacados -->
+                <h2 class="text-lg font-semibold text-gray-700 pt-2 border-t mt-6">Últimos Movimientos</h2>
+                <div id="dashboard-movements" class="space-y-3 mt-3">
+                    <!-- Los movimientos se cargarán aquí -->
+                </div>
+            </div>
+        `;
+        // Cargar movimientos en el dashboard
+        const dashboardMovements = document.getElementById('dashboard-movements');
+        const recentMovements = movements.slice(0, 2); // Mostrar solo 2
+        
+        recentMovements.forEach(m => {
+            const amountClass = m.type === 'ingreso' ? 'text-green-600' : 'text-red-600';
+            const sign = m.type === 'ingreso' ? '+' : '-';
+            dashboardMovements.innerHTML += `
+                <div class="flex justify-between items-center p-3 bg-white rounded-lg shadow-sm border border-gray-100">
+                    <div>
+                        <div class="font-medium text-gray-800">${m.description}</div>
+                        <div class="text-xs text-gray-400">${m.date}</div>
+                    </div>
+                    <div class="font-bold ${amountClass}">${sign} ${formatCurrency(m.amount)}</div>
+                </div>
+            `;
+        });
+    }
+
+    // --- Lógica del Análisis de Gastos con Gemini ---
+    async function runSpendingAnalysis() {
+        const button = document.getElementById('gemini-analysis-button');
+        const resultCard = document.getElementById('analysis-result-card');
+        const resultText = document.getElementById('analysis-text');
+        
+        button.disabled = true;
+        button.innerHTML = '<span class="text-lg">⏳</span> <span class="text-xs mt-1">Analizando...</span>';
+        resultCard.classList.add('hidden');
+        resultText.textContent = '';
+
+        // Preparar la descripción de los movimientos para el prompt
+        const movementSummary = movements.map(m => 
+            `${m.type === 'gasto' ? 'Gasto' : 'Ingreso'}: ${m.description} (${formatCurrency(m.amount)})`
+        ).join('; ');
+
+        const systemPrompt = "Actúa como un asesor financiero personal experto. Analiza el siguiente resumen de movimientos bancarios y proporciona un consejo de ahorro práctico y conciso, de no más de 50 palabras, centrado en optimizar los gastos o aumentar los ingresos. Responde en español.";
+        const userQuery = `Mis movimientos recientes son: ${movementSummary}. ¿Cuál es un buen consejo de ahorro?`;
+
+        const advice = await callGemini(systemPrompt, userQuery);
+
+        // Mostrar resultado
+        resultText.textContent = advice;
+        resultCard.classList.remove('hidden');
+        
+        // Restaurar botón
+        button.disabled = false;
+        button.innerHTML = '<span class="text-lg">✨</span> <span class="text-xs mt-1 text-gray-700 font-bold">Análisis IA</span>';
+    }
+
+    // --- Renderizado de Transferencias ---
+    function renderTransferForm() {
+        contentArea.innerHTML = `
+            <div class="space-y-6">
+                <h2 class="text-xl font-bold text-gray-800 border-b pb-3 mb-6">Nueva Transferencia</h2>
+                <form id="transfer-form" class="space-y-4">
+                    <!-- Destinatario (Solo simulación) -->
+                    <div>
+                        <label for="transfer-recipient" class="block text-sm font-medium text-gray-700">Destinatario</label>
+                        <select id="transfer-recipient" required class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-app-primary focus:border-app-primary sm:text-sm rounded-md shadow-sm">
+                            <option value="">Seleccione un contacto</option>
+                            <option value="Luis Perez">Luis Pérez</option>
+                            <option value="Maria Gomez">María Gómez</option>
+                            <option value="Servicio">Pago de Servicios</option>
+                        </select>
+                    </div>
+
+                    <!-- Monto -->
+                    <div>
+                        <label for="transfer-amount" class="block text-sm font-medium text-gray-700">Monto ($ MXN)</label>
+                        <input type="number" id="transfer-amount" min="1" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-app-primary focus:ring-app-primary sm:text-sm p-2" placeholder="Ej: 500.00">
+                    </div>
+
+                    <!-- Concepto -->
+                    <div>
+                        <label for="transfer-concept" class="block text-sm font-medium text-gray-700">Concepto</label>
+                        <div class="flex space-x-2">
+                            <input type="text" id="transfer-concept" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-app-primary focus:ring-app-primary sm:text-sm p-2" placeholder="Ej: Pago de renta">
+                            <button type="button" id="suggest-concept-button" onclick="suggestConcept()" class="flex-shrink-0 bg-app-secondary hover:bg-app-primary text-white font-medium py-2 px-3 rounded-md shadow-md transition duration-150">
+                                IA ✨
+                            </button>
+                        </div>
+                        <div id="concept-loading-text" class="text-xs text-gray-500 mt-1 hidden">Generando sugerencia...</div>
+                    </div>
+                    
+                    <button type="submit" id="confirm-transfer-button" class="w-full bg-app-primary hover:bg-app-secondary text-white font-bold py-3 rounded-xl shadow-lg transition duration-150">
+                        Confirmar Transferencia
+                    </button>
+                </form>
+            </div>
+        `;
+        document.getElementById('transfer-form').addEventListener('submit', handleTransfer);
+    }
+
+    // --- Lógica de Sugerencia de Concepto con Gemini ---
+    async function suggestConcept() {
+        const recipient = document.getElementById('transfer-recipient').value;
+        const amount = document.getElementById('transfer-amount').value;
+        const conceptInput = document.getElementById('transfer-concept');
+        const loadingText = document.getElementById('concept-loading-text');
+
+        if (!recipient || !amount) {
+            showCustomMessage("Selecciona un destinatario y un monto primero.", false);
+            return;
+        }
+
+        loadingText.classList.remove('hidden');
+        document.getElementById('suggest-concept-button').disabled = true;
+
+        const systemPrompt = "Actúa como un generador de conceptos de transferencia modernos y creativos. Basado en el destinatario y el monto, sugiere un concepto único de no más de 5 palabras. No uses signos de puntuación. Responde solo el concepto.";
+        const userQuery = `Destinatario: ${recipient}, Monto: ${formatCurrency(amount)}. Sugiere un concepto:`;
+
+        const concept = await callGemini(systemPrompt, userQuery);
+
+        if (concept && !concept.includes("Error")) {
+            // Limpia la respuesta por si Gemini agregó comillas o puntuación (aunque se le pide no hacerlo)
+            conceptInput.value = concept.replace(/["'.,]/g, '').trim(); 
+        } else {
+            showCustomMessage("No se pudo generar el concepto con IA.", false);
+        }
+
+        loadingText.classList.add('hidden');
+        document.getElementById('suggest-concept-button').disabled = false;
+    }
+
+    // --- Manejo de la Transferencia ---
+    function handleTransfer(e) {
+        e.preventDefault();
+        const recipient = document.getElementById('transfer-recipient').value;
+        const amount = parseFloat(document.getElementById('transfer-amount').value);
+        const concept = document.getElementById('transfer-concept').value;
+        const button = document.getElementById('confirm-transfer-button');
+
+        if (amount > balance) {
+            showCustomMessage('¡Saldo Insuficiente! La transferencia excede tu saldo.', false);
+            return;
+        }
+
+        if (amount <= 0 || isNaN(amount)) {
+            showCustomMessage('Ingresa un monto válido.', false);
+            return;
+        }
+
+        // Simulación de carga
+        button.disabled = true;
+        button.textContent = 'Procesando...';
+
+        setTimeout(() => {
+            // 1. Actualizar Saldo
+            balance -= amount;
+
+            // 2. Agregar Movimiento
+            const newMovement = {
+                id: Date.now(),
+                type: 'gasto',
+                description: concept,
+                amount: amount,
+                date: new Date().toLocaleDateString('es-MX', { hour: '2-digit', minute: '2-digit' })
+            };
+            movements.unshift(newMovement); // Agregar al inicio de la lista
+            
+            // 3. Mostrar Mensaje de Éxito
+            showCustomMessage(`¡Transferencia de ${formatCurrency(amount)} a ${recipient} exitosa!`);
+
+            // 4. Restaurar y limpiar
+            button.disabled = false;
+            button.textContent = 'Confirmar Transferencia';
+            document.getElementById('transfer-form').reset();
+            
+            // 5. Verificar Saldo Bajo (Trigger TTS)
+            if (balance < LOW_BALANCE_THRESHOLD) {
+                const message = `Alerta: Tu saldo actual de ${formatCurrency(balance)} ha caído por debajo del umbral de seguridad.`;
+                playTTS(message);
+            }
+
+        }, 1500); // 1.5 segundos de simulación
+    }
+
+    // --- Renderizado de Movimientos y Asistente IA ---
+    function renderMovementsList() {
+        contentArea.innerHTML = `
+            <div class="space-y-6">
+                <h2 class="text-xl font-bold text-gray-800 border-b pb-3">Historial de Movimientos</h2>
+
+                <!-- Chat de Asistente Financiero IA -->
+                <div class="bg-indigo-50 p-4 rounded-xl shadow-md">
+                    <h3 class="font-bold text-app-primary mb-3 flex items-center"><span class="text-xl mr-2">💬</span> Asistente Financiero IA</h3>
+                    <div id="ai-chat-box" class="h-32 overflow-y-auto bg-white border border-gray-200 p-2 rounded-lg text-sm mb-3 space-y-2">
+                        <div class="text-gray-500">Hola. Pregúntame algo sobre tus gastos (ej: "¿Cuánto gasté en el supermercado?").</div>
+                    </div>
+                    <div class="flex space-x-2">
+                        <input type="text" id="ai-query-input" class="flex-1 rounded-md border-gray-300 p-2 sm:text-sm" placeholder="Escribe tu pregunta...">
+                        <button id="ai-query-button" onclick="handleAIChatQuery()" class="bg-app-primary hover:bg-app-secondary text-white py-2 px-4 rounded-md transition duration-150">
+                            Enviar
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Lista de Movimientos -->
+                <div id="movements-list" class="space-y-3">
+                    <!-- Los movimientos se inyectarán aquí -->
+                </div>
+            </div>
+        `;
+
+        const listContainer = document.getElementById('movements-list');
+        movements.forEach(m => {
+            const amountClass = m.type === 'ingreso' ? 'text-green-600' : 'text-red-600';
+            const sign = m.type === 'ingreso' ? '+' : '-';
+            listContainer.innerHTML += `
+                <div class="flex justify-between items-center p-3 bg-white rounded-lg shadow-sm border border-gray-100">
+                    <div class="flex items-center space-x-3">
+                        <span class="text-xl ${m.type === 'ingreso' ? 'text-green-400' : 'text-red-400'}">${m.type === 'ingreso' ? '⬆️' : '⬇️'}</span>
+                        <div>
+                            <div class="font-medium text-gray-800">${m.description}</div>
+                            <div class="text-xs text-gray-400">${m.date}</div>
+                        </div>
+                    </div>
+                    <div class="font-bold ${amountClass}">${sign} ${formatCurrency(m.amount)}</div>
+                </div>
+            `;
+        });
+    }
+
+    // --- Lógica del Chat de Asistente Financiero con Gemini ---
+    async function handleAIChatQuery() {
+        const queryInput = document.getElementById('ai-query-input');
+        const chatBox = document.getElementById('ai-chat-box');
+        const query = queryInput.value.trim();
+        const button = document.getElementById('ai-query-button');
+
+        if (!query) return;
+
+        // 1. Mostrar pregunta del usuario
+        chatBox.innerHTML += `<div class="text-right text-app-primary font-medium">Tú: ${query}</div>`;
+        chatBox.scrollTop = chatBox.scrollHeight;
+        queryInput.value = '';
+
+        button.disabled = true;
+        button.textContent = 'IA...';
+
+        // 2. Preparar el prompt con el historial real de movimientos
+        const movementSummary = movements.map(m => 
+            `${m.type === 'gasto' ? 'Gasto' : 'Ingreso'}: ${m.description} (${formatCurrency(m.amount)})`
+        ).join(', ');
+
+        const systemPrompt = "Actúa como un asistente bancario que responde preguntas específicas sobre movimientos financieros. Utiliza el historial proporcionado para dar una respuesta precisa y formal, de no más de dos frases. No inventes transacciones. Si la información no está, dilo de forma clara.";
+        const userQuery = `Historial: ${movementSummary}. Pregunta del usuario: ${query}`;
+
+        const responseText = await callGemini(systemPrompt, userQuery);
+
+        // 3. Mostrar respuesta de la IA
+        chatBox.innerHTML += `<div class="text-left bg-gray-100 p-2 rounded-lg text-gray-800">🤖: ${responseText}</div>`;
+        chatBox.scrollTop = chatBox.scrollHeight;
+        
+        button.disabled = false;
+        button.textContent = 'Enviar';
+    }
+
+    // --- Renderizado de Ajustes (Simulación) ---
+    function renderSettings() {
+        contentArea.innerHTML = `
+            <div class="space-y-6">
+                <h2 class="text-xl font-bold text-gray-800 border-b pb-3 mb-6">Ajustes de la Cuenta</h2>
+                
+                <div class="bg-white p-4 rounded-xl shadow-md">
+                    <h3 class="font-semibold text-gray-700 mb-2">Seguridad</h3>
+                    <ul class="space-y-2 text-sm text-gray-600">
+                        <li class="flex justify-between items-center py-1">
+                            Cambiar Contraseña
+                            <button class="text-app-secondary hover:text-app-primary">Editar</button>
+                        </li>
+                        <li class="flex justify-between items-center py-1">
+                            Autenticación de 2 Factores
+                            <span class="text-green-500 font-bold">ACTIVO</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="bg-white p-4 rounded-xl shadow-md">
+                    <h3 class="font-semibold text-gray-700 mb-2">Notificaciones</h3>
+                    <div class="flex justify-between items-center py-1 text-sm text-gray-600">
+                        Alertas de Saldo Bajo (TTS)
+                        <input type="checkbox" checked disabled class="h-4 w-4 text-app-primary border-gray-300 rounded">
+                    </div>
+                </div>
+
+                <button class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl shadow-lg transition duration-150">
+                    Cerrar Sesión
+                </button>
+            </div>
+        `;
+    }
+
+    // --- Inicialización al Cargar la Aplicación ---
+    window.onload = function() {
+        // Iniciar con la pestaña Dashboard
+        renderTabContent('dashboard'); 
+        // Aplicar el estado inicial de activo al botón de Dashboard
+        document.querySelector('[data-tab="dashboard"]').classList.add('active');
+    };
+
+</script>
+</body>
+</html>
